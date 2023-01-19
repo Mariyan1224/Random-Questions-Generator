@@ -1,0 +1,138 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" 
+             xmlns:m="using:QuestGen.Model" 
+             xmlns:vm="clr-namespace:QuestGen.ViewModel" 
+             x:Class="QuestGen.MainPage">
+    <Page.Resources>
+      <!--  <m:UploadFile x:Key="uploadFile"/> -->
+        <vm:ViewModel_Question x:Key="viewModel"/>
+    </Page.Resources>
+    <StackLayout>
+        <Frame BackgroundColor="#2196F3" Padding="24" CornerRadius="0">
+            <Label Text="Random Questions Generator" HorizontalTextAlignment="Center" TextColor="White" FontSize="36"/>
+        </Frame>
+        <StackLayout WidthRequest="450" Orientation="Vertical" HorizontalOptions="Center" BindingContext="{Binding Source={StaticResource viewModel}}">
+            
+            <Label Text="Въведете брой на групите:"/>
+            <Entry Text="{Binding GroupsCounts}"
+                    Placeholder="Groups"
+                    MaxLength="2"
+                    ClearButtonVisibility="WhileEditing"
+                    Keyboard="Numeric"/>
+            <Label Text="Въведете число"
+                   TextColor="Red"
+                   FontSize="16"
+                   IsVisible="{Binding IsInputGroupDataIncorrect}"/>
+
+            <Label Text="Въведете общ брой въпроси за всяка група:"/>
+            <Entry Text="{Binding QuestionsPerGroup}"
+                   Placeholder="Questions"
+                   MaxLength="2"
+                   ClearButtonVisibility="WhileEditing"
+                   Keyboard="Numeric"/>
+
+            <Label Text="Въведете число"
+                   TextColor="Red"
+                   FontSize="16"
+                   IsVisible="{Binding IsInputQuestionGroupDataIncorrect}"/>
+
+            <Button Text="Прикачи файл"
+                    HorizontalOptions="Start"
+                    WidthRequest="120"
+                    HeightRequest="40"
+                    Command="{Binding UploadCommand}"
+                    CommandParameter="{Binding}"/>
+        
+            <Grid BackgroundColor="Blue"
+                IsVisible="{Binding HasUploadedFiles}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="150"/>
+                    <ColumnDefinition Width="153"/>
+                    <ColumnDefinition Width="150"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="30"/>
+                </Grid.RowDefinitions>
+
+                <Label Grid.Row="0" Grid.Column="0"
+                   Text="Име на файл"
+                   HorizontalTextAlignment="Center"
+                   VerticalTextAlignment="Center"/>
+                <Label Grid.Row="0" Grid.Column="1"
+                    Text="Брой въпроси от файл*"
+                    HorizontalTextAlignment="Center"
+                    VerticalTextAlignment="Center"/>
+                <Label Grid.Row="0" Grid.Column="2"
+                    Text="Премахни файл"
+                    TextColor="LimeGreen"
+                    FontAttributes="Bold"
+                    HorizontalTextAlignment="Center"
+                    VerticalTextAlignment="Center"/>
+            </Grid>
+
+            <ListView ItemsSource="{Binding ShowFileInfoCollection}">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <ViewCell>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150"/>
+                                    <ColumnDefinition Width="150"/>
+                                    <ColumnDefinition Width="150"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="35"/>
+                                    <RowDefinition Height="auto"/>
+                                </Grid.RowDefinitions>
+
+                                <Label Text="{Binding FileName}"
+                                   Grid.Row="0" Grid.Column="0"
+                                   VerticalTextAlignment="Center"
+                                   HorizontalTextAlignment="Center"/>
+                                <Entry Placeholder ="Брой въпроси/файл"
+                                   Grid.Row="0" Grid.Column="1"
+                                   Text="{Binding CountQuestionsPerFile}"
+                                   HorizontalTextAlignment="Center"
+                                   VerticalTextAlignment="Center"
+                                   MaxLength="2"/>
+                                <Button Text="Изтрий"
+                                        FontSize="17"
+                                        TextColor="Red"
+                                        Command="{Binding DeleteCommand, Source={StaticResource viewModel}}"
+                                        CommandParameter="{Binding}"
+                                        Grid.Row="0" Grid.Column="2"/>
+                                <Label Grid.Row="1" Grid.Column="1"
+                                   Text="Въведи число"
+                                   VerticalTextAlignment="End"
+                                   HorizontalTextAlignment="Center"
+                                   HeightRequest="17"
+                                   TextColor="Red"
+                                   FontSize="16"
+                                   IsVisible="{Binding IsInputCountQuestionsPerFileIncorrect}"/>
+                            </Grid>
+                        </ViewCell>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+            <Label Text="* Сумата на броя въпроси от файловете трябва да бъде равна на общия брой въпроси за всяка група."
+                   IsVisible="{Binding HasUploadedFiles}"/>
+            <Button Text="Генерирай"
+                    
+                    IsVisible="{Binding IsInputQuestionDataValid}"/>
+            <ListView ItemsSource="{Binding}">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid>
+                            <Label Text="hello"/>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </StackLayout>
+        <ActivityIndicator IsRunning="False"
+                           WidthRequest="100"/>
+
+    </StackLayout>
+
+</ContentPage>
