@@ -1,113 +1,213 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.IO;
-using System.Runtime.CompilerServices;
-using System.Text;
 using System.Text.RegularExpressions;
 using Xamarin.Essentials;
-using Xamarin.Forms;
+using System.Threading.Tasks;
+using Windows.Storage;
+using System.Text;
+using Syncfusion.DocIO;
+using Syncfusion.DocIO.DLS;
 
 namespace QuestGen.Model
 {
-    public class Generator : INotifyPropertyChanged
+    public class Generator
     {
-        private int _GroupsCount = 1;
-        private int _QuestionsPerGroup = 4;
-      
-        private bool _IsInputGroupDataIncorrect = true;
-        private bool _IsInputQuestionGroupDataIncorrect = true;
-        private bool _IsUploadEnabled;
-
-        public event PropertyChangedEventHandler PropertyChanged;
-       
-        public bool IsInputQuestionGroupDataIncorrect
+        int CountGroups { get; set; }
+       // int CountQuestionsPerFile { get; set; } //Not nesessery
+        ObservableCollection<FileResult> RawFilesCollection { get; set; }
+        ObservableCollection<UploadFile> FilesInfoCollection { get; set; }
+        List<string> QuestionsInGroup { get; set; }
+        SortedList<int, int> StartEndPositionsList { get; set; }
+        public Generator(ObservableCollection<FileResult> rawCollection, ObservableCollection<UploadFile> infoCollection, int groups)//, int questions)
         {
-            get => _IsInputQuestionGroupDataIncorrect;
-            private set
+            RawFilesCollection = rawCollection;
+            FilesInfoCollection = infoCollection;
+            CountGroups = groups;
+            QuestionsInGroup = new List<string>();
+            StartEndPositionsList = new SortedList<int,int>();
+        }
+        public void Generating()
+        {
+            //OpenReadFile
+            //
+            int fileLength = RawFilesCollection.Count;
+            for (int fileIndex = 0; fileIndex < fileLength; fileIndex++)
             {
-                if (value != _IsInputQuestionGroupDataIncorrect)
-                {
-                    _IsInputQuestionGroupDataIncorrect = value;
-                    if (!value && !IsInputGroupDataIncorrect)
-                        IsUploadEnabled = true;
-                    else
-                        IsUploadEnabled = false;
-                }
-                OnPropertyChanged();
+                if (RawFilesCollection[fileIndex].FileName.EndsWith(".txt"))
+                    ReadQuestionsFromTxTFile(fileIndex);
+                if (RawFilesCollection[fileIndex].FileName.EndsWith(".docx")) { }
+                    //Todo
+                    // var p = await RawFilesCollection[i].OpenReadAsync();
+                    //   p.
             }
         }
-        public bool IsInputGroupDataIncorrect
+        async void ReadQuestionsFromTxTFile(int fileIndex) //Read records from .txt file and write them in List
         {
-            get => _IsInputGroupDataIncorrect;
-            private set
+            
+            var randomNum = new Random();
+            int questionsCount = int.Parse(FilesInfoCollection[fileIndex].CountQuestionsPerFile);
+            int count, checkValue, startPos, parcialRecordValue, endPos, i;
+            string record = null;
+            using (Stream fileStream = await RawFilesCollection[fileIndex].OpenReadAsync())
             {
-                if (value != _IsInputGroupDataIncorrect)
+                while (questionsCount > 0)
                 {
-                    _IsInputGroupDataIncorrect = value;
-                    if (!value && !IsInputQuestionGroupDataIncorrect)
-                        IsUploadEnabled = true;
-                    else
-                        IsUploadEnabled = false;
-                }
-                OnPropertyChanged();
-            }
-        }
-        public bool IsUploadEnabled
-        {
-            get => _IsUploadEnabled;
-            set
-            {
-                if (_IsUploadEnabled != value)
-                    _IsUploadEnabled = value;
-                OnPropertyChanged();
-            }
-        }
-        public string GroupsCounts
-        {
-            get => _GroupsCount.ToString();
-            set
-            {
-                if (value != null && (Regex.Match(value, @"^\d{2}$").Success || Regex.Match(value, @"^\d{1}$").Success))
-                {
-                    if (int.Parse(value) >= 1)
+                    count = randomNum.Next((int)fileStream.Length - 1);
+                    fileStream.Position = count;
+                    checkValue = fileStream.ReadByte();
+                    fileStream.Position--;
+                    do                                      //Find the begining of a record
                     {
-                        _GroupsCount = int.Parse(value);
-                        IsInputGroupDataIncorrect = false;
-                    }
+                        while (checkValue != 10)            //10 = new line 13 = begining of a line
+                        {
+                            if (count > 0)
+                            {
+                                // backward till you get value 10
+                                fileStream.Seek(--count, SeekOrigin.Begin);
+                                checkValue = fileStream.ReadByte();
+                                fileStream.Position--;
+                            }
+                            else
+                                break;
+                        }
+                        if (count > 2)
+                        {
+                            fileStream.Position = fileStream.Position - 2;  ///Check if it is at the begining of the question which means sequence of 13 10 13 10
+                            checkValue = fileStream.ReadByte();
+                            if (checkValue == 10)
+                                fileStream.Position += 2;
+                        }
+                        else
+                        {
+                            fileStream.Position = 0;
+                            break;
+                        }
+
+                    } while (checkValue != 10);
+                    //Congrats!!! You are at the begining of the question
+                    //Start reading question till you find twice 13
+                    startPos = (int)fileStream.Position;
+
+                    parcialRecordValue = fileStream.ReadByte();
+                    do                                           //Find the end of a record
+                    {
+                        while (parcialRecordValue != 13 && fileStream.Position < fileStream.Length)
+                        {
+                            fileStream.Seek(fileStream.Position, SeekOrigin.Begin);  //forward till you get 13
+                            parcialRecordValue = fileStream.ReadByte();
+                        }
+                        if (fileStream.Position > fileStream.Length) // when out of the file
+                            break;
+                        fileStream.Position += 1;
+                        parcialRecordValue = fileStream.ReadByte();
+                    } while (parcialRecordValue != 13);
+
+                    if (fileStream.Position < fileStream.Length)
+                        endPos = (int)fileStream.Position -  3;   // You are at the end of a record
                     else
-                        IsInputGroupDataIncorrect = true;
+                        endPos = (int)fileStream.Length; // You are at the end of the file
+
+                    fileStream.Seek(startPos, SeekOrigin.Begin); //Read whole record
+                    for (i = startPos; i < endPos; i++)
+                    {
+                        record += (char)fileStream.ReadByte();
+                    }
+                    //if (QuestionsInGroup.Count == 0)
+                    //{
+                    //    StartEndPositionsList.Add(startPos,endPos);
+                    //}
+                        
+                    if (!QuestionsInGroup.Contains(record)) //Check if record already exists in the List 
+                    {
+                        questionsCount--;
+                        QuestionsInGroup.Add(record);
+                    }
+                    record = null;
                 }
-                else
-                    IsInputGroupDataIncorrect = true;
+            }
+        }
+        public async Task<bool> AreFilesValidatedAsync()
+        {
+            string failedFileReadingNames = "\n";
+            int fileLength = RawFilesCollection.Count;
+            for (int fileIndex = 0; fileIndex < fileLength; fileIndex++)
+            {
+                if (RawFilesCollection[fileIndex].FileName.EndsWith(".txt"))
+                {
+                    if (!await IsTxtFileValidatedAsync(fileIndex))
+                        failedFileReadingNames += RawFilesCollection[fileIndex].FileName + "\n";
+                }
+                else //if(RawFilesCollection[fileIndex].FileName.EndsWith(".docx"))
+                    if (!await IsDocxFileValidatedAsync(fileIndex))
+                        failedFileReadingNames += RawFilesCollection[fileIndex].FileName + "\n";
+                // else if()...
+
+            }
+            if (failedFileReadingNames != "\n")
+            {
+                await App.Current.MainPage.DisplayAlert("Warning", "Съдържанието на следните файлове: \n"+ failedFileReadingNames + "\n не отговаря на зададените стандарти. " +
+                    "\n Моля, свържете се с центъра за обслужване на клиенти.", "Oк");
+                return false;
+            }
+            return true;
+        }
+        private async Task<bool> IsTxtFileValidatedAsync(int fileIndex)
+        {
+            string word;
+            int countQustions = 0;
+            MatchCollection readQuestionsInFileCountCollection;
+            using (Stream fileStream = await RawFilesCollection[fileIndex].OpenReadAsync())
+            {
+                byte[] buffer = new byte[fileStream.Length];
+                try
+                {
+                    fileStream.Read(buffer, 0, (int)fileStream.Length);
+                    word = Encoding.UTF8.GetString(buffer);
+                }
+                catch(Exception e)
+                {
+                    fileStream.Dispose();
+                    return false;
+                }
                 
             }
-        }
-        public string QuestionsPerGroup
-        {
-            get => _QuestionsPerGroup.ToString();
-            set
+            readQuestionsInFileCountCollection = Regex.Matches(word, "\r\n\r\n\r\n");
+            foreach (Match item in readQuestionsInFileCountCollection)
             {
-                if (value != null && (Regex.Match(value, @"^\d{2}$").Success || Regex.Match(value, @"^\d{1}$").Success))
-                {
-                    if (int.Parse(value) >= 1)
-                    {
-                        _QuestionsPerGroup = int.Parse(value);
-                        IsInputQuestionGroupDataIncorrect = false;
-                    }
-                    else
-                        IsInputQuestionGroupDataIncorrect = true;
-                }
-                else
-                    IsInputQuestionGroupDataIncorrect = true;
+                ++countQustions;
             }
+            if(countQustions + 1 >= int.Parse(FilesInfoCollection[fileIndex].CountQuestionsPerFile) && countQustions != 0)
+                return true;
+            return false;
         }
-     
-        private void OnPropertyChanged([CallerMemberName] string name = "")
+        private async Task<bool> IsDocxFileValidatedAsync(int fileIndex)
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+            int countQustions = 0;
+            using (Stream fileStream = await RawFilesCollection[fileIndex].OpenReadAsync())
+            {
+                try
+                {
+                    WordDocument document = new WordDocument(fileStream, FormatType.Docx);
+                    string fileRead = document.GetText();
+                    Regex pattern = new Regex("(?m:$)");
+                    TextSelection[] selection = document.FindAll(pattern);
+                    if (selection != null)
+                    {
+                        for (int i = 0; i < selection.Length; i++)
+                            ++countQustions;
+                        if (countQustions >= int.Parse(FilesInfoCollection[fileIndex].CountQuestionsPerFile) && countQustions != 0)
+                            return true;
+                    }
+                }
+                catch (Exception e)
+                {
+                    fileStream.Dispose();
+                    return false;
+                }
+            }
+            return false;
         }
     }
 }

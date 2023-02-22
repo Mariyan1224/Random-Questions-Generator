@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "QuestGen": {
+      "commandName": "Project"
+    },
+    "QuestionG": {
+      "commandName": "Project"
+    }
+  }
+}

@@ -18,12 +18,8 @@ namespace QuestGen.ViewModel.Commands
         }
         public bool CanExecute(object parameter)
         {
-            var vm = parameter as ViewModel_Question;
-            if (vm != null)
-            {
-                //if(ViewModel.ShowFileInfoCollection.Count <= int.Parse(ViewModel.QuestionsPerGroup))
-                return !vm.IsInputQuestionGroupDataIncorrect && !vm.IsInputGroupDataIncorrect;
-            }
+            if (parameter != null)
+               return (bool)parameter;
             return false;
         }
             

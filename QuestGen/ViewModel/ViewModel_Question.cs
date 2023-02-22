@@ -11,18 +11,17 @@ using QuestGen.Model;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using QuestGen.ViewModel.Commands;
+using System.Threading.Tasks;
 
 namespace QuestGen.ViewModel
 {
     public class ViewModel_Question : INotifyPropertyChanged
     {
-        
-        private int _fileId = -1;
+
         private int _GroupsCount = 1;
-        private int _QuestionsPerGroup = 4;
+        private int _QuestionsPerGroup = 10;
 
         private bool _HasUploadedFiles;
-        private bool _IsInputQuestionDataValid;
         private bool _IsInputGroupDataIncorrect = true;
         private bool _IsInputQuestionGroupDataIncorrect = true;
         private bool _IsUploadEnabled;
@@ -30,9 +29,12 @@ namespace QuestGen.ViewModel
         public event PropertyChangedEventHandler PropertyChanged;
         public UploadCommand UploadCommand { get; set; }
         public DeleteCommand DeleteCommand { get; set; }
+        public GenerateCommand GenerateCommand { get; set; }
         public ObservableCollection<UploadFile> ShowFileInfoCollection { get; set; }
         private ObservableCollection<FileResult> FileResultCollection { get; set; }
+        private Generator Generator { get; set; }
 
+        private UploadFile UploadFile { get; set; }
 
         public bool IsInputQuestionGroupDataIncorrect
         {
@@ -42,21 +44,14 @@ namespace QuestGen.ViewModel
                 if (value != _IsInputQuestionGroupDataIncorrect)
                 {
                     _IsInputQuestionGroupDataIncorrect = value;
-                    if (!value && !IsInputGroupDataIncorrect)
+                    if (!value && !IsInputGroupDataIncorrect && UploadFileEnabled())
                         IsUploadEnabled = true;
                     else
                         IsUploadEnabled = false;
                 }
                 OnPropertyChanged();
-                UploadCommand.CanExecuteChanged += UploadCommand_CanExecuteChanged;
             }
         }
-
-        private void UploadCommand_CanExecuteChanged(object sender, EventArgs e)
-        {
-            throw new NotImplementedException();
-        }
-
         public bool IsInputGroupDataIncorrect
         {
             get => _IsInputGroupDataIncorrect;
@@ -65,10 +60,10 @@ namespace QuestGen.ViewModel
                 if (value != _IsInputGroupDataIncorrect)
                 {
                     _IsInputGroupDataIncorrect = value;
-                    if (!value && !IsInputQuestionGroupDataIncorrect)
+                    if (!value && !IsInputQuestionGroupDataIncorrect && UploadFileEnabled())
                         IsUploadEnabled = true;
                     else
-                        IsUploadEnabled = false;
+                        IsUploadEnabled = false; 
                 }
                 OnPropertyChanged();
             }
@@ -80,16 +75,6 @@ namespace QuestGen.ViewModel
             {
                 if (_IsUploadEnabled != value)
                     _IsUploadEnabled = value;
-                OnPropertyChanged();
-            }
-        }
-        public bool IsInputQuestionDataValid
-        {
-            get => _IsInputQuestionDataValid;
-            set
-            {
-                if (_IsInputQuestionDataValid != value)
-                    _IsInputQuestionDataValid = value;
                 OnPropertyChanged();
             }
         }
@@ -105,7 +90,7 @@ namespace QuestGen.ViewModel
                 OnPropertyChanged();
             }
         }
-        public string GroupsCounts
+        public string GroupsCount
         {
             get => _GroupsCount.ToString();
             set
@@ -124,7 +109,7 @@ namespace QuestGen.ViewModel
                     IsInputGroupDataIncorrect = true;
             }
         }
-        public string QuestionsPerGroup
+        public string QuestionsPerGroupCount
         {
             get => _QuestionsPerGroup.ToString();
             set
@@ -143,8 +128,7 @@ namespace QuestGen.ViewModel
                     IsInputQuestionGroupDataIncorrect = true;
             }
         }
-
-        private void OnPropertyChanged([CallerMemberName] string name = "")
+        public void OnPropertyChanged([CallerMemberName] string name = "")
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
@@ -153,11 +137,10 @@ namespace QuestGen.ViewModel
         {
             UploadCommand = new UploadCommand(this);
             DeleteCommand = new DeleteCommand(this);
-           // Generator = new Generator();
-           // Question = new Question(Generator);
+            GenerateCommand = new GenerateCommand(this);
             ShowFileInfoCollection = new ObservableCollection<UploadFile>();
             FileResultCollection = new ObservableCollection<FileResult>();
-           // UploadFile = new UploadFile(ShowFileInfoCollection, FileResultCollection);
+            Generator = new Generator(FileResultCollection, ShowFileInfoCollection, int.Parse(GroupsCount));
         }
 
         public async void LoadFile()
@@ -169,9 +152,10 @@ namespace QuestGen.ViewModel
                     {
                         FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
                         {
-                            {DevicePlatform.UWP, new [] {".pdf", ".docx", ".txt"} }
+                            {DevicePlatform.UWP, new [] {".docx", ".txt"} }
                         }),
                         PickerTitle = "Please select a .pdf, .txt, or .docx file."
+                        
                     });
                 if (pickResult == null)
                 {
@@ -179,14 +163,15 @@ namespace QuestGen.ViewModel
                 }
                 AddPickResultInCollection(pickResult);
                 foreach (FileResult file in FileResultCollection)
-                {
+                { 
                     if (!IfMyCollectionContains(file.FileName))
                     {
-                        ShowFileInfoCollection.Add(new UploadFile(++_fileId, file.FileName));
+                        ShowFileInfoCollection.Add(new UploadFile(file.FileName));
                     }
                     
                 }
-                if(ShowFileInfoCollection.Count != 0 && !HasUploadedFiles)
+                IsUploadEnabled = UploadFileEnabled();
+                if (ShowFileInfoCollection.Count != 0 && !HasUploadedFiles)
                     HasUploadedFiles = true;
             }
             catch (Exception e)
@@ -205,6 +190,8 @@ namespace QuestGen.ViewModel
                     break;
                 }
             }
+            if (int.Parse(QuestionsPerGroupCount) > FileResultCollection.Count)
+                IsUploadEnabled = true;
             if (FileResultCollection.Count == 0)
                 HasUploadedFiles = false;
         }
@@ -231,20 +218,40 @@ namespace QuestGen.ViewModel
                         break;
                     }
                 }
-                if (flag)
+                if (flag && int.Parse(QuestionsPerGroupCount) > FileResultCollection.Count)
                     FileResultCollection.Add(pickedFile);
+                if (int.Parse(QuestionsPerGroupCount) == FileResultCollection.Count)
+                {
+                    IsUploadEnabled = false;
+                    return;
+                }
             }
         }
-        private bool InputQuestionsDataValidated()
+        bool UploadFileEnabled()
         {
             int countQuestionPerGroup = 0;
-            for (int i = 0; i < ShowFileInfoCollection.Count; i++)
+            int countLoadedFiles = ShowFileInfoCollection.Count;
+            for (int i = 0; i < countLoadedFiles; i++)
             {
                 countQuestionPerGroup += int.Parse(ShowFileInfoCollection[i].CountQuestionsPerFile);
             }
-            if (int.Parse(QuestionsPerGroup) == countQuestionPerGroup)
+            if (int.Parse(QuestionsPerGroupCount) > countQuestionPerGroup)
+            {
                 return true;
-            return false;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        public void GenerateGroups()
+        {
+           
+            Generator.Generating();
+        }
+        public async Task<bool> ValidateFilesAsync()
+        {
+           return await Generator.AreFilesValidatedAsync();
         }
     }
 }

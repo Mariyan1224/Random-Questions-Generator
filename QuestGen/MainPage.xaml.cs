@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Xamarin.Forms;
 using QuestGen.ViewModel;
 
+
 namespace QuestGen
 {
     public partial class MainPage : ContentPage
@@ -15,10 +16,6 @@ namespace QuestGen
         {
             InitializeComponent();
             BindingContext = new ViewModel_Question();
-        }
-
-        private void Button_Pressed(object sender, EventArgs e)
-        {
         }
     }
 }

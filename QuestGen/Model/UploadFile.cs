@@ -1,4 +1,5 @@
-﻿using System;
+﻿using QuestGen.ViewModel;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -12,16 +13,11 @@ namespace QuestGen.Model
 {
     public class UploadFile : INotifyPropertyChanged
     {
-        
         private int _CountQuestionsPerFile = 1;
         private bool _IsInputCountQuestionsPerFileIncorrect;
 
         public virtual event PropertyChangedEventHandler PropertyChanged;
-
-        private int Id
-        {
-            get; set;
-        }
+        private ViewModel_Question ViewModel { get; set; }
         public string FileName
         {
             get; internal set;
@@ -55,14 +51,9 @@ namespace QuestGen.Model
                     IsInputCountQuestionsPerFileIncorrect = true;
             }
         }
-        public UploadFile(int id,string fileName)
+        public UploadFile(string fileName)
         {
-            Id = id;
             FileName = fileName;
-        }
-        public UploadFile()
-        {
-
         }
         private void OnPropertyChanged([CallerMemberName] string name = "")
         {
