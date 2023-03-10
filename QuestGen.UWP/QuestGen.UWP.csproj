@@ -150,6 +150,12 @@
     <PackageReference Include="Syncfusion.Xamarin.DocIO">
       <Version>20.4.0.51</Version>
     </PackageReference>
+    <PackageReference Include="Syncfusion.Xamarin.Pdf">
+      <Version>20.4.0.52</Version>
+    </PackageReference>
+    <PackageReference Include="System.Runtime.WindowsRuntime">
+      <Version>4.0.11</Version>
+    </PackageReference>
     <PackageReference Include="Xamarin.Forms" Version="5.0.0.2012" />
     <PackageReference Include="Xamarin.Essentials" Version="1.7.3" />
   </ItemGroup>

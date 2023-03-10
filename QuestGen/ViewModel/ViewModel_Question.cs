@@ -12,6 +12,10 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using QuestGen.ViewModel.Commands;
 using System.Threading.Tasks;
+using Windows.Storage;
+using Syncfusion.DocIO.DLS;
+using Windows.Storage.Streams;
+using Syncfusion.DocIO;
 
 namespace QuestGen.ViewModel
 {
@@ -19,7 +23,7 @@ namespace QuestGen.ViewModel
     {
 
         private int _GroupsCount = 1;
-        private int _QuestionsPerGroup = 10;
+        private int _QuestionsPerGroup = 1;
 
         private bool _HasUploadedFiles;
         private bool _IsInputGroupDataIncorrect = true;
@@ -140,7 +144,7 @@ namespace QuestGen.ViewModel
             GenerateCommand = new GenerateCommand(this);
             ShowFileInfoCollection = new ObservableCollection<UploadFile>();
             FileResultCollection = new ObservableCollection<FileResult>();
-            Generator = new Generator(FileResultCollection, ShowFileInfoCollection, int.Parse(GroupsCount));
+            Generator = new Generator(FileResultCollection, ShowFileInfoCollection);
         }
 
         public async void LoadFile()
@@ -244,10 +248,50 @@ namespace QuestGen.ViewModel
                 return false;
             }
         }
-        public void GenerateGroups()
+        public async void GenerateGroups()
         {
-           
-            Generator.Generating();
+            //
+
+            //Pick a folder to save the file in
+            string fileName = "Groups.docx";
+            StorageFile file = null;
+            try
+            {
+                file = await Generator.PickSaveFolder(fileName);
+                if (file != null)
+                {
+                    int countGroups = int.Parse(GroupsCount);
+                    int fileCounter = FileResultCollection.Count;
+                    Generator.CreateDocxDocument();
+
+                    // Create groups
+
+                    while (countGroups > 0)
+                    {
+                        for (int fileIndex = 0; fileIndex < fileCounter; fileIndex++)
+                        {
+                            if (FileResultCollection[fileIndex].FileName.EndsWith(".txt"))
+                                await Generator.ReadQuestionsFromTxTFileAsync(fileIndex);
+                            if (FileResultCollection[fileIndex].FileName.EndsWith(".docx"))
+                                await Generator.ReadQuestionsFromDocxFileAsync(fileIndex);
+                        }
+                        Generator.WriteAListInDocxFile(countGroups);
+                            --countGroups;
+                        
+                    }
+                    await Generator.SaveDocxDocumentInFile(file);
+                    bool result = await App.Current.MainPage.DisplayAlert("Open file", "Желаете ли да отворите файла?", "Да", "Не");
+                    if (result)
+                        await Windows.System.Launcher.LaunchFileAsync(file);
+                }
+            }
+            catch (Exception e)
+            {
+                await App.Current.MainPage.DisplayAlert("Warning", e.Message, "Oк");
+            }
+
+            //
+            //Generator.Generating();
         }
         public async Task<bool> ValidateFilesAsync()
         {

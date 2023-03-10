@@ -37,6 +37,11 @@ namespace QuestGen.ViewModel.Commands
                     "равна на общия брой въпроси за всяка група.", "Oк");
                 return;
             }
+            if (ViewModel.IsInputGroupDataIncorrect)
+            {
+                await App.Current.MainPage.DisplayAlert("Warning", "Въведете колко групи искате да бъдат генерирани.", "Oк");
+                return;
+            }
             if (await ViewModel.ValidateFilesAsync())
                 ViewModel.GenerateGroups();
            
